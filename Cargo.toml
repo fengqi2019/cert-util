@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 rsa = "0.6.1"
 rand = "0.8.5"
-picky = "6.3.0"
+picky = { version = "6.3.0", features = ["chrono_conversion"] }
 anyhow = "1.0.56"
 chrono = "0.4"
+rustls-pemfile = "1.0.0"

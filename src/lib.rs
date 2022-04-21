@@ -7,11 +7,10 @@ use picky::x509::certificate::CertificateBuilder;
 use picky::x509::date::UTCDate;
 use picky::x509::name::DirectoryName;
 use picky::x509::{Cert, Csr, KeyIdGenMethod};
-use rsa::pkcs1::der::ErrorKind::DateTime;
-use rsa::pkcs1::LineEnding;
+use rsa::pkcs1::{EncodeRsaPrivateKey, LineEnding};
 use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
 use rsa::{RsaPrivateKey, RsaPublicKey};
-use std::io::Read;
+use std::io::BufReader;
 use std::path::Path;
 
 pub fn gen_rsa_pkcs8_key_pem() -> Result<(String, String)> {
@@ -22,6 +21,28 @@ pub fn gen_rsa_pkcs8_key_pem() -> Result<(String, String)> {
     let pri_str = private_key.to_pkcs8_pem(LineEnding::CRLF)?;
     let pub_str = public_key.to_public_key_pem(LineEnding::CRLF)?;
     Ok((pri_str.to_string(), pub_str))
+}
+
+pub fn gen_rsa_key_pem_and_file(
+    pri_path: impl AsRef<Path>,
+    pub_path: impl AsRef<Path>,
+) -> Result<(PrivateKey, PublicKey)> {
+    let mut rng = rand::thread_rng();
+    let bits = 2048;
+    let private_key = RsaPrivateKey::new(&mut rng, bits).expect("failed to generate a key");
+    let public_key = RsaPublicKey::from(&private_key);
+    let pri_str = private_key.to_pkcs1_pem(LineEnding::CRLF)?;
+    let pub_str = public_key.to_public_key_pem(LineEnding::CRLF)?;
+
+    // let mut reader = BufReader::new(pri_str.as_bytes());
+    // let key = rustls_pemfile::rsa_private_keys(&mut reader).unwrap();
+    // println!("key.len = {}", key.len());
+    std::fs::write(pub_path, pub_str.as_bytes())?;
+    std::fs::write(pri_path, pri_str.as_bytes())?;
+    Ok((
+        PrivateKey::from_pem_str(pri_str.as_str())?,
+        PublicKey::from_pem_str(pub_str.as_str())?,
+    ))
 }
 
 pub fn gen_rsa_pkcs8_key_pem_and_file(
@@ -35,6 +56,8 @@ pub fn gen_rsa_pkcs8_key_pem_and_file(
     let pri_str = private_key.to_pkcs8_pem(LineEnding::CRLF)?;
     let pub_str = public_key.to_public_key_pem(LineEnding::CRLF)?;
 
+    // println!("{:?}", pri_str);
+    // println!("{:?}", pub_str);
     std::fs::write(pub_path, pub_str.as_bytes())?;
     std::fs::write(pri_path, pri_str.as_bytes())?;
     Ok((
@@ -58,7 +81,9 @@ pub fn gen_root_cert(
         .key_id_gen_method(KeyIdGenMethod::SPKFullDER(HashAlgorithm::SHA2_384))
         .build()?;
     let root_pem = root.to_pem()?;
-    std::fs::write(cert_path, root_pem.data()).unwrap();
+
+    // println!("{:?}", root_pem.to_string());
+    std::fs::write(cert_path, root_pem.to_string()).unwrap();
     Ok(root)
 }
 
@@ -86,18 +111,18 @@ pub fn gen_ca_cert(
         .pathlen(0)
         .build()?;
     let intermediate_pem = intermediate.to_pem()?;
-    std::fs::write(cert_path, intermediate_pem.data()).unwrap();
-    Ok(root)
+    std::fs::write(cert_path, intermediate_pem.to_string()).unwrap();
+    Ok(intermediate)
 }
 
 pub fn gen_cert_by_ca(
     csr: Csr,
     from_data: UTCDate,
     to_date: UTCDate,
-    ca_cert: Cert,
-    ca_key: picky::key::PrivateKey,
+    ca_cert: &Cert,
+    ca_key: &picky::key::PrivateKey,
     cert_path: impl AsRef<Path>,
-) -> Result<()> {
+) -> Result<Cert> {
     let signed_leaf = CertificateBuilder::new()
         .validity(from_data, to_date)
         .subject_from_csr(csr)
@@ -107,8 +132,8 @@ pub fn gen_cert_by_ca(
         .key_id_gen_method(KeyIdGenMethod::SPKFullDER(HashAlgorithm::SHA2_512))
         .build()?;
     let leaf_pem = signed_leaf.to_pem()?;
-    std::fs::write(cert_path, leaf_pem.data()).unwrap();
-    Ok(())
+    std::fs::write(cert_path, leaf_pem.to_string()).unwrap();
+    Ok(signed_leaf)
 }
 
 pub fn gen_valid_date(valid_year: u16) -> Result<(UTCDate, UTCDate)> {
