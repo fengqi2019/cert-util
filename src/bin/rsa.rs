@@ -1,4 +1,4 @@
-use cert_util::gen_rsa_pkcs8_key_pem_and_file;
+use cert_util::{gen_rsa_pkcs8_key_pem, gen_rsa_pkcs8_key_pem_and_file};
 use rsa::pkcs8::{DecodePrivateKey, DecodePublicKey};
 use rsa::{PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey};
 
@@ -8,8 +8,7 @@ fn main() {
     // let bits = 2048;
     // let private_key = RsaPrivateKey::new(&mut rng, bits).expect("failed to generate a key");
     // let public_key = RsaPublicKey::from(&private_key);
-    let (pri_key, pub_key) =
-        gen_rsa_pkcs8_key_pem_and_file("certs/private.key", "certs/pub.key").unwrap();
+    let (pri_key, pub_key) = gen_rsa_pkcs8_key_pem().unwrap();
     let private_key = RsaPrivateKey::from_pkcs8_pem(pri_key.as_str()).unwrap();
     let public_key = RsaPublicKey::from_public_key_pem(pub_key.as_str()).unwrap();
 

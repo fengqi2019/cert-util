@@ -1,4 +1,5 @@
-use cert_util::gen_rsa_pkcs8_key_pem_and_file;
+use cert_util::{gen_ca_cert, gen_root_cert, gen_rsa_pkcs8_key_pem_and_file, gen_valid_date};
+use chrono::Datelike;
 use picky::key::PrivateKey;
 use picky::x509::certificate::CertificateBuilder;
 use picky::x509::csr::Attribute;
@@ -12,54 +13,27 @@ use std::error::Error;
 
 // Generate a self-signed root certificate
 fn main() -> Result<(), Box<dyn Error>> {
-    let (root_pri, _) =
+    let (root_key, _) =
         gen_rsa_pkcs8_key_pem_and_file("certs/root_pri.key", "certs/root_pub.key").unwrap();
     let (intermediate_pri, _) =
         gen_rsa_pkcs8_key_pem_and_file("certs/intermediate_pri.key", "certs/intermediate_pub.key")
             .unwrap();
     let (leaf_pri, _) =
         gen_rsa_pkcs8_key_pem_and_file("certs/leaf_pri.key", "certs/leaf_pub.key").unwrap();
-    let root_key_pem_str = root_pri.as_str();
-    let intermediate_key_pem_str = intermediate_pri.as_str();
-    let leaf_key_pem_str = leaf_pri.as_str();
-    // Load private key
-    let root_key = PrivateKey::from_pem_str(root_key_pem_str)?;
 
-    let root = CertificateBuilder::new()
-        .validity(
-            UTCDate::ymd(2020, 9, 28).unwrap(),
-            UTCDate::ymd(2023, 9, 28).unwrap(),
-        )
-        .self_signed(DirectoryName::new_common_name("My Root CA"), &root_key)
-        .ca(true)
-        .signature_hash_type(SignatureAlgorithm::RsaPkcs1v15(HashAlgorithm::SHA2_512))
-        .key_id_gen_method(KeyIdGenMethod::SPKFullDER(HashAlgorithm::SHA2_384))
-        .build()?;
-
+    let (from_date, to_date) = gen_valid_date(3)?;
+    let root = gen_root_cert("MyRootCa", from_date, to_date, &root_key, "certs/root.crt")?;
     assert_eq!(root.ty(), CertType::Root);
-
-    // Generate intermediate certificate signed by root CA
-
-    let intermediate_key = PrivateKey::from_pem_str(intermediate_key_pem_str)?;
-
-    let intermediate = CertificateBuilder::new()
-        .validity(
-            UTCDate::ymd(2020, 10, 15).unwrap(),
-            UTCDate::ymd(2023, 10, 15).unwrap(),
-        )
-        .subject(
-            DirectoryName::new_common_name("My Authority"),
-            intermediate_key.to_public_key(),
-        )
-        .issuer_cert(&root, &root_key)
-        .signature_hash_type(SignatureAlgorithm::RsaPkcs1v15(HashAlgorithm::SHA2_224))
-        .key_id_gen_method(KeyIdGenMethod::SPKValueHashedLeftmost160(
-            HashAlgorithm::SHA1,
-        ))
-        .ca(true)
-        .pathlen(0)
-        .build()?;
-
+    let (from_date, to_date) = gen_valid_date(3)?;
+    let intermediate = gen_ca_cert(
+        "MyIntermediateCa",
+        from_date,
+        to_date,
+        &root,
+        &root_key,
+        &intermediate_pri,
+        "certs/intermediate.crt",
+    )?;
     assert_eq!(intermediate.ty(), CertType::Intermediate);
 
     // Generate leaf certificate signed by intermediate authority
@@ -79,12 +53,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         ])
         .into_non_critical(),
         Extension::new_subject_alt_name(vec![
-            GeneralName::new_dns_name("test.example.com")
+            GeneralName::new_dns_name("www.localhost.com")
                 .unwrap()
                 .into(),
-            GeneralName::new_dns_name("party.example.com")
-                .unwrap()
-                .into(),
+            GeneralName::new_dns_name("localhost.com").unwrap().into(),
         ])
         .into_non_critical(),
     ]);
@@ -92,7 +64,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let attr = Attribute::new_extension_request(extensions.0);
 
     println!("attr={:?}", attr);
-    let mut my_name = DirectoryName::new_common_name("jmhuang");
+    let mut my_name = DirectoryName::new_common_name("localhost");
     my_name.add_attr(NameAttr::StateOrProvinceName, "fujian");
     my_name.add_attr(NameAttr::CountryName, "China");
     // assert_eq!(
@@ -114,6 +86,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             UTCDate::ymd(2024, 1, 1).unwrap(),
         )
         .subject_from_csr(csr)
+        .inherit_extensions_from_csr_attributes(true)
         .issuer_cert(&intermediate, &intermediate_key)
         .signature_hash_type(SignatureAlgorithm::RsaPkcs1v15(HashAlgorithm::SHA2_384))
         .key_id_gen_method(KeyIdGenMethod::SPKFullDER(HashAlgorithm::SHA2_512))
@@ -142,7 +115,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     assert_eq!(
         err.to_string(),
-        "invalid certificate \'CN=jmhuang,ST=fujian,C=China\': \
+        "invalid certificate \'CN=example,ST=fujian,C=China\': \
      certificate expired (not after: 2024-01-01 00:00:00, now: 2025-01-02 00:00:00)"
     );
 
