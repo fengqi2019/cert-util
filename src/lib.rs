@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use chrono::Datelike;
 use picky::hash::HashAlgorithm;
 use picky::key::{PrivateKey, PublicKey};
@@ -10,6 +10,8 @@ use picky::x509::{Cert, Csr, KeyIdGenMethod};
 use rsa::pkcs1::{EncodeRsaPrivateKey, LineEnding};
 use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
 use rsa::{RsaPrivateKey, RsaPublicKey};
+use rustls::Certificate;
+use rustls_pemfile::Item::X509Certificate;
 use std::path::Path;
 
 pub fn gen_rsa_pkcs8_key_pem() -> Result<(String, String)> {
@@ -103,9 +105,7 @@ pub fn gen_ca_cert(
         )
         .issuer_cert(super_ca, super_ca_key)
         .signature_hash_type(SignatureAlgorithm::RsaPkcs1v15(HashAlgorithm::SHA2_256))
-        .key_id_gen_method(KeyIdGenMethod::SPKFullDER(
-            HashAlgorithm::SHA2_256,
-        ))
+        .key_id_gen_method(KeyIdGenMethod::SPKFullDER(HashAlgorithm::SHA2_256))
         .ca(true)
         .pathlen(0)
         .build()?;
@@ -143,4 +143,32 @@ pub fn gen_valid_date(valid_year: u16) -> Result<(UTCDate, UTCDate)> {
     let to_date = UTCDate::ymd(year, now.month() as u8, now.day() as u8)
         .ok_or(anyhow!("日期生成失败:{:?}", year))?;
     Ok((from_date, to_date))
+}
+
+pub fn load_native_certs() -> Result<rustls::RootCertStore> {
+    let mut roots = rustls::RootCertStore::empty();
+    for cert in rustls_native_certs::load_native_certs().context("could not load platform certs")? {
+        roots.add(&rustls::Certificate(cert.0)).unwrap();
+    }
+    Ok(roots)
+}
+
+pub fn load_certs(path: impl AsRef<Path>) -> Result<Vec<Certificate>> {
+    let file = std::fs::File::open(path)?;
+    let mut reader = std::io::BufReader::new(file);
+    let datas = rustls_pemfile::certs(&mut reader)?;
+    let mut certs = Vec::with_capacity(datas.len());
+    for data in datas.into_iter() {
+        certs.push(rustls::Certificate(data));
+    }
+    Ok(certs)
+}
+pub fn load_rsa_key(path: impl AsRef<Path>) -> Result<rustls::PrivateKey> {
+    let file = std::fs::File::open(path)?;
+    let mut reader = std::io::BufReader::new(file);
+    let datas = rustls_pemfile::rsa_private_keys(&mut reader)?;
+    for data in datas.into_iter() {
+        return Ok(rustls::PrivateKey(data));
+    }
+    bail!("未找到秘钥")
 }
