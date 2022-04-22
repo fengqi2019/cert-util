@@ -1,6 +1,6 @@
 use cert_util::{
     gen_ca_cert, gen_cert_by_ca, gen_root_cert, gen_rsa_key_pem_and_file,
-    gen_rsa_pkcs8_key_pem_and_file, gen_valid_date,
+    gen_valid_date,
 };
 use picky::x509::csr::Attribute;
 use picky::x509::date::UTCDate;
@@ -18,7 +18,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         gen_rsa_key_pem_and_file("certs/intermediate_pri.key", "certs/intermediate_pub.key")
             .unwrap();
     let (leaf_key, _) =
-        gen_rsa_key_pem_and_file("certs/leaf_pri.key", "certs/leaf_pub.key").unwrap();
+        gen_rsa_key_pem_and_file("certs/jmhuang_pri.key", "certs/jmhuang_pub.key").unwrap();
+
+    let (localhost_key, _) =
+        gen_rsa_key_pem_and_file("certs/localhost_pri.key", "certs/localhost_pub.key").unwrap();
 
     let (from_date, to_date) = gen_valid_date(3)?;
     let root = gen_root_cert("MyRootCa", from_date, to_date, &root_key, "certs/root.crt")?;
@@ -77,11 +80,55 @@ fn main() -> Result<(), Box<dyn Error>> {
         to_date,
         &intermediate,
         &intermediate_pri,
-        "certs/leaf.crt",
+        "certs/jmhuang.crt",
     )
     .unwrap();
 
     assert_eq!(signed_leaf.ty(), CertType::Leaf);
+
+    let mut key_usage = KeyUsage::new(3);
+    key_usage.set_digital_signature(false);
+    key_usage.set_content_commitment(false);
+    key_usage.set_key_encipherment(false);
+    let extensions = Extensions(vec![
+        Extension::new_basic_constraints(None, None).into_non_critical(),
+        Extension::new_key_usage(key_usage).into_non_critical(),
+        Extension::new_extended_key_usage(vec![
+            oids::kp_client_auth(),
+            oids::kp_server_auth(),
+            oids::kp_code_signing(),
+        ])
+            .into_non_critical(),
+        Extension::new_subject_alt_name(vec![
+            GeneralName::new_dns_name("www.localhost.com")
+                .unwrap()
+                .into(),
+            GeneralName::new_dns_name("localhost.com").unwrap().into(),
+        ])
+            .into_non_critical(),
+    ]);
+    let attr = Attribute::new_extension_request(extensions.0);
+    let mut my_name = DirectoryName::new_common_name("localhost");
+    my_name.add_attr(NameAttr::StateOrProvinceName, "fujian");
+    my_name.add_attr(NameAttr::CountryName, "China");
+    let csr = Csr::generate_with_attributes(
+        my_name,
+        &localhost_key,
+        SignatureAlgorithm::RsaPkcs1v15(HashAlgorithm::SHA2_256),
+        vec![attr],
+    )
+        .unwrap();
+    let (from_date, to_date) = gen_valid_date(3)?;
+
+    let signed_leaf = gen_cert_by_ca(
+        csr,
+        from_date,
+        to_date,
+        &intermediate,
+        &intermediate_pri,
+        "certs/localhost.crt",
+    )
+        .unwrap();
 
     // Check leaf using CA chain
 

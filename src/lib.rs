@@ -10,7 +10,6 @@ use picky::x509::{Cert, Csr, KeyIdGenMethod};
 use rsa::pkcs1::{EncodeRsaPrivateKey, LineEnding};
 use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
 use rsa::{RsaPrivateKey, RsaPublicKey};
-use std::io::BufReader;
 use std::path::Path;
 
 pub fn gen_rsa_pkcs8_key_pem() -> Result<(String, String)> {
@@ -77,8 +76,8 @@ pub fn gen_root_cert(
         .validity(from_date, to_date)
         .self_signed(DirectoryName::new_common_name(name), ca_key)
         .ca(true)
-        .signature_hash_type(SignatureAlgorithm::RsaPkcs1v15(HashAlgorithm::SHA2_512))
-        .key_id_gen_method(KeyIdGenMethod::SPKFullDER(HashAlgorithm::SHA2_384))
+        .signature_hash_type(SignatureAlgorithm::RsaPkcs1v15(HashAlgorithm::SHA2_256))
+        .key_id_gen_method(KeyIdGenMethod::SPKFullDER(HashAlgorithm::SHA2_256))
         .build()?;
     let root_pem = root.to_pem()?;
 
@@ -103,9 +102,9 @@ pub fn gen_ca_cert(
             ca_key.to_public_key(),
         )
         .issuer_cert(super_ca, super_ca_key)
-        .signature_hash_type(SignatureAlgorithm::RsaPkcs1v15(HashAlgorithm::SHA2_224))
-        .key_id_gen_method(KeyIdGenMethod::SPKValueHashedLeftmost160(
-            HashAlgorithm::SHA1,
+        .signature_hash_type(SignatureAlgorithm::RsaPkcs1v15(HashAlgorithm::SHA2_256))
+        .key_id_gen_method(KeyIdGenMethod::SPKFullDER(
+            HashAlgorithm::SHA2_256,
         ))
         .ca(true)
         .pathlen(0)
@@ -128,8 +127,8 @@ pub fn gen_cert_by_ca(
         .subject_from_csr(csr)
         .inherit_extensions_from_csr_attributes(true)
         .issuer_cert(&ca_cert, &ca_key)
-        .signature_hash_type(SignatureAlgorithm::RsaPkcs1v15(HashAlgorithm::SHA2_384))
-        .key_id_gen_method(KeyIdGenMethod::SPKFullDER(HashAlgorithm::SHA2_512))
+        .signature_hash_type(SignatureAlgorithm::RsaPkcs1v15(HashAlgorithm::SHA2_256))
+        .key_id_gen_method(KeyIdGenMethod::SPKFullDER(HashAlgorithm::SHA2_256))
         .build()?;
     let leaf_pem = signed_leaf.to_pem()?;
     std::fs::write(cert_path, leaf_pem.to_string()).unwrap();
