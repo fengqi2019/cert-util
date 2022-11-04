@@ -17,15 +17,15 @@ rustls = "0.20.4"
 x509-parser = "0.13.2"
 actix-web = { version = "4.0.1" }
 reqwest = { version = "0.11.10"}
-
-
+log = "0.4.17"
+tokio = { version = "1.17.0", features = ["full"] }
+custom-utils = "0.10.11"
 [dev-dependencies]
-env_logger = "0.9.0"
+
 der-parser = "8.0.0"
 nom = "7.1.1"
-tokio = { version = "1.17.0", features = ["full"] }
-
 [features]
 default = []
 openssl = ["actix-web/openssl", "reqwest/native-tls"]
 rusttls = ["actix-web/rustls", "reqwest/rustls-tls"]
+
