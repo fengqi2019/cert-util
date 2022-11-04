@@ -11,8 +11,8 @@ async fn no_params() -> &'static str {
 async fn main() -> Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("debug"));
 
-    let cert_chains = load_certs("certs/localhost.crt")?;
-    let key = load_rsa_key("certs/localhost_pri.key")?;
+    let cert_chains = load_certs("certs/nodns/localhost.crt")?;
+    let key = load_rsa_key("certs/nodns/localhost_pri.key")?;
     // let cert_chains = load_certs("certs/duduwuli/www.duduwuli.cn_bundle.crt")?;
     // let key = load_rsa_key("certs/duduwuli/www.duduwuli.cn.key")?;
     let server_conf = rustls::ServerConfig::builder()

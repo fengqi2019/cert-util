@@ -14,10 +14,16 @@ async fn main() -> Result<()> {
 
     eprintln!("Fetching {:?}...", url);
 
-    let certs = load_certs("certs/intermediate.crt")?;
+    // let certs = load_certs("certs/root.crt")?;
+    let certs = load_certs("certs/nodns/intermediate.crt")?;
     let cert = reqwest::Certificate::from_der(certs[0].0.as_slice())?;
+
+    let certs_root = load_certs("certs/nodns/root.crt")?;
+    let cert_root = reqwest::Certificate::from_der(certs_root[0].0.as_slice())?;
+
     let client = reqwest::ClientBuilder::default()
         .add_root_certificate(cert)
+        .add_root_certificate(cert_root)
         .build()?;
 
     let res = client.get(url).send().await?;

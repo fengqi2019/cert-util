@@ -11,7 +11,6 @@ use rsa::pkcs1::{EncodeRsaPrivateKey, LineEnding};
 use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
 use rsa::{RsaPrivateKey, RsaPublicKey};
 use rustls::Certificate;
-use rustls_pemfile::Item::X509Certificate;
 use std::path::Path;
 
 pub fn gen_rsa_pkcs8_key_pem() -> Result<(String, String)> {
