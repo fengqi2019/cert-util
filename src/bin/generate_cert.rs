@@ -54,6 +54,7 @@ async fn main() -> anyhow::Result<()> {
                 .unwrap()
                 .into(),
             GeneralName::new_dns_name("localhost.com").unwrap().into(),
+            GeneralName::new_dns_name("localhost").unwrap().into(),
         ])
         .into_non_critical(),
     ]);
@@ -77,6 +78,7 @@ async fn main() -> anyhow::Result<()> {
 
 #[derive(Debug)]
 pub struct Args {
+    pub file_name: String,
     pub path: PathBuf,
     pub name: String,
     pub ca_path: String,
@@ -85,13 +87,13 @@ pub struct Args {
 
 impl Args {
     pub fn private_key_path(&self) -> PathBuf {
-        self.path.join("cert_pri.key".to_string())
+        self.path.join(format!("{}_pri.key", self.file_name))
     }
     pub fn public_key_path(&self) -> PathBuf {
-        self.path.join("cert_pub.key".to_string())
+        self.path.join(format!("{}_pub.key", self.file_name))
     }
     pub fn cert_path(&self) -> PathBuf {
-        self.path.join("cert.crt".to_string())
+        self.path.join(format!("{}.crt", self.file_name))
     }
     pub fn init() -> Self {
         let path: PathBuf = custom_utils::args::arg_value("--path", "-p")
@@ -107,8 +109,10 @@ impl Args {
             custom_utils::args::arg_value("--root", "-r").unwrap_or("./certs/root.crt".to_string());
         let root_key_path = custom_utils::args::arg_value("--root-key", "-k")
             .unwrap_or("./certs/root_pri.key".to_string());
+        let file_name = custom_utils::args::arg_value("--file", "-f").unwrap_or("cert".to_string());
         Self {
             path,
+            file_name,
             name,
             ca_path: root_path,
             ca_key_path: root_key_path,

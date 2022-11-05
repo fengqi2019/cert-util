@@ -8,7 +8,7 @@ async fn main() -> Result<()> {
         Some(url) => url,
         None => {
             println!("No CLI URL provided, using default.");
-            "https://localhost.com:8080".into()
+            "https://localhost:8080".into()
         }
     };
 
