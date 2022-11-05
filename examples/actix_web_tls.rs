@@ -9,10 +9,10 @@ async fn no_params() -> &'static str {
 
 #[actix_web::main]
 async fn main() -> Result<()> {
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("debug"));
+    custom_utils::logger::logger_stdout_debug();
 
-    let cert_chains = load_certs("certs/nodns/localhost.crt")?;
-    let key = load_rsa_key("certs/nodns/localhost_pri.key")?;
+    let cert_chains = load_certs("certs/cert.crt")?;
+    let key = load_rsa_key("certs/cert_pri.key")?;
     // let cert_chains = load_certs("certs/duduwuli/www.duduwuli.cn_bundle.crt")?;
     // let key = load_rsa_key("certs/duduwuli/www.duduwuli.cn.key")?;
     let server_conf = rustls::ServerConfig::builder()
@@ -20,7 +20,7 @@ async fn main() -> Result<()> {
         .with_no_client_auth()
         .with_single_cert(cert_chains, key)?;
     HttpServer::new(|| App::new().service(no_params))
-        .bind_rustls("127.0.0.1:8080", server_conf)?
+        .bind_rustls("0.0.0.0:8080", server_conf)?
         .workers(1)
         .run()
         .await?;

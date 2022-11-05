@@ -51,28 +51,13 @@ pub struct Args {
 
 impl Args {
     pub fn private_key_path(&self) -> PathBuf {
-        let full_name = if self.name.is_empty() {
-            "intermediate_pri.key".to_string()
-        } else {
-            format!("rintermediate_{}_pri.key", self.name)
-        };
-        self.path.join(full_name)
+        self.path.join("intermediate_pri.key".to_string())
     }
     pub fn public_key_path(&self) -> PathBuf {
-        let full_name = if self.name.is_empty() {
-            "intermediate_pub.key".to_string()
-        } else {
-            format!("rintermediate_{}_pub.key", self.name)
-        };
-        self.path.join(full_name)
+        self.path.join("intermediate_pub.key".to_string())
     }
     pub fn cert_path(&self) -> PathBuf {
-        let full_name = if self.name.is_empty() {
-            "intermediate.crt".to_string()
-        } else {
-            format!("intermediate_{}.crt", self.name)
-        };
-        self.path.join(full_name)
+        self.path.join("intermediate.crt".to_string())
     }
     pub fn init() -> Self {
         let path: PathBuf = custom_utils::args::arg_value("--path", "-p")
@@ -82,11 +67,11 @@ impl Args {
             std::fs::create_dir_all(path.as_path()).unwrap();
         }
         let name = custom_utils::args::arg_value("--name", "-n")
-            .unwrap_or("".to_string())
+            .unwrap_or("IntermediateCa".to_string())
             .into();
         let root_path =
             custom_utils::args::arg_value("--root", "-r").unwrap_or("./certs/root.crt".to_string());
-        let root_key_path = custom_utils::args::arg_value("--root", "-r")
+        let root_key_path = custom_utils::args::arg_value("--root-key", "-k")
             .unwrap_or("./certs/root_pri.key".to_string());
         Self {
             path,

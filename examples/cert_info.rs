@@ -331,8 +331,8 @@ fn handle_certificate(file_name: &str, data: &[u8]) -> io::Result<()> {
 }
 
 pub fn main() -> Result<()> {
-    print_cert("certs/duduwuli/www.duduwuli.cn.crt")?;
-    print_cert("certs/localhost.crt")?;
+    // print_cert("certs/duduwuli/www.duduwuli.cn.crt")?;
+    print_cert("certs/cert.crt")?;
     Ok(())
 }
 
