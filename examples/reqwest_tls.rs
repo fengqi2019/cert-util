@@ -15,7 +15,8 @@ async fn main() -> Result<()> {
     eprintln!("Fetching {:?}...", url);
 
     // let certs = load_certs("certs/root.crt")?;
-    let certs = load_certs("certs/root.crt")?;
+    // let certs = load_certs("certs/root.crt")?;
+    let certs = load_certs("ecdsa/ca.cert")?;
     let cert = reqwest::Certificate::from_der(certs[0].0.as_slice())?;
 
     // let certs_root = load_certs("certs/root_pri.key")?;
@@ -23,6 +24,8 @@ async fn main() -> Result<()> {
 
     let client = reqwest::ClientBuilder::default()
         .add_root_certificate(cert)
+        // must add this code!
+        .use_rustls_tls()
         // .add_root_certificate(cert_root)
         .build()?;
 
