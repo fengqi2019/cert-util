@@ -1,12 +1,15 @@
+#![allow(unused_variables)]
 use anyhow::{anyhow, bail, Context, Result};
 use chrono::Datelike;
 use picky::hash::HashAlgorithm;
 use picky::key::{PrivateKey, PublicKey};
+use picky::oids;
 use picky::signature::SignatureAlgorithm;
 use picky::x509::certificate::CertificateBuilder;
 use picky::x509::date::UTCDate;
-use picky::x509::name::DirectoryName;
-use picky::x509::{Cert, Csr, KeyIdGenMethod};
+use picky::x509::extension::KeyUsage;
+use picky::x509::name::{DirectoryName, GeneralName};
+use picky::x509::{Cert, Csr, Extension, Extensions, KeyIdGenMethod};
 use rsa::pkcs1::{EncodeRsaPrivateKey, LineEnding};
 use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
 use rsa::{RsaPrivateKey, RsaPublicKey};
@@ -73,9 +76,40 @@ pub fn gen_root_cert(
     ca_key: &picky::key::PrivateKey,
     cert_path: impl AsRef<Path>,
 ) -> Result<Cert> {
+    let mut key_usage = KeyUsage::new(8);
+    // key_usage.set_digital_signature(true);
+    // key_usage.set_content_commitment(true);
+    key_usage.set_key_encipherment(true);
+    // key_usage.set_crl_sign(true);
+    key_usage.set_data_encipherment(true);
+    // key_usage.set_decipher_only(true);
+    // key_usage.set_encipher_only(true);
+    // key_usage.set_key_agreement(true);
+    // key_usage.set_key_cert_sign(true);
+    let extensions = Extensions(vec![
+        Extension::new_basic_constraints(None, None).into_non_critical(),
+        Extension::new_key_usage(key_usage).into_non_critical(),
+        Extension::new_subject_alt_name(vec![
+            GeneralName::new_dns_name("www.localhost.com")
+                .unwrap()
+                .into(),
+            GeneralName::new_dns_name("localhost.com").unwrap().into(),
+            GeneralName::new_dns_name("localhost").unwrap().into(),
+        ])
+        .into_non_critical(),
+    ]);
+
     let root = CertificateBuilder::new()
         .validity(from_date, to_date)
         .self_signed(DirectoryName::new_common_name(name), ca_key)
+        .extended_key_usage(
+            vec![
+                oids::kp_client_auth(),
+                oids::kp_server_auth(),
+                oids::kp_code_signing(),
+            ]
+            .into(),
+        )
         .ca(true)
         .signature_hash_type(SignatureAlgorithm::RsaPkcs1v15(HashAlgorithm::SHA2_256))
         .key_id_gen_method(KeyIdGenMethod::SPKFullDER(HashAlgorithm::SHA2_256))
@@ -166,6 +200,16 @@ pub fn load_rsa_key(path: impl AsRef<Path>) -> Result<rustls::PrivateKey> {
     let file = std::fs::File::open(path)?;
     let mut reader = std::io::BufReader::new(file);
     let datas = rustls_pemfile::rsa_private_keys(&mut reader)?;
+    for data in datas.into_iter() {
+        return Ok(rustls::PrivateKey(data));
+    }
+    bail!("未找到秘钥")
+}
+
+pub fn load_pkcs8_key(path: impl AsRef<Path>) -> Result<rustls::PrivateKey> {
+    let file = std::fs::File::open(path)?;
+    let mut reader = std::io::BufReader::new(file);
+    let datas = rustls_pemfile::pkcs8_private_keys(&mut reader)?;
     for data in datas.into_iter() {
         return Ok(rustls::PrivateKey(data));
     }

@@ -14,7 +14,6 @@ fn main() -> Result<()> {
 
 fn verify_server(ca_path: &str, server_fullchain_path: &str, server_name: &str) -> Result<()> {
     let mut root_store = RootCertStore::empty();
-    // root_store.add(&load_certs("./ecdsa/inter.cert")?.remove(0))?;
     root_store.add(&load_certs(ca_path)?.remove(0))?;
     let verifier = WebPkiVerifier::new(root_store, None);
     let chain = load_certs(server_fullchain_path)?;
